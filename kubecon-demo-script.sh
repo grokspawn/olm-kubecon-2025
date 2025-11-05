@@ -42,6 +42,9 @@ kubectl wait --for=condition=Installed clusterextension/demo-operator --timeout=
 kubectl get clusterextensions.olm.operatorframework.io demo-operator -o yaml | yq '.spec'
 kubectl get clusterextensions.olm.operatorframework.io demo-operator -o yaml | yq '.status.conditions[]| select(.type == "Installed")'
 
+# checking ClusterExtensionRevision (CER) after install
+kubectl get clusterextensionrevision -A
+
 # upgrading demo ClusterExtension to v0.0.2, with a broken manifest
 kubectl apply -f manifests/03_clusterextension-v0.0.2-broken.yaml
 sleep 5
@@ -49,6 +52,7 @@ kubectl get clusterextension demo-operator -o yaml | yq '.status.conditions[] | 
 
 #  ... oops!  We forgot to remove the watch namespace!  Fix that
 kubectl apply -f manifests/04_clusterextension-v0.0.2-fixed.yaml
+
 #  status after demo-operator.v0.0.2 fixed installation
 kubectl wait --for=jsonpath='{.status.install.bundle.name}="demo-operator.v0.0.2"' clusterextension demo-operator --timeout=30s
 kubectl wait --for=condition=Installed clusterextension/demo-operator --timeout=180s
@@ -59,4 +63,27 @@ kubectl get clusterextension demo-operator -o yaml | yq '.status.conditions[] | 
 # final status
 kubectl get clusterextension -A
 
+# checking the installed validating webhook configuration
+kubectl get validatingwebhookconfigurations.admissionregistration.k8s.io -A
+
+# checking the installed mutating webhook configuration
+kubectl get mutatingwebhookconfigurations.admissionregistration.k8s.io -A
+
+# inspecting where the validating webhook is running (in-cluster service endpoint)
+kubectl describe validatingwebhookconfigurations.admissionregistration.k8s.io vwebhooktest.kb.io | sed -n '/Service:/,/Port:/p'
+
+# inspecting where the mutating webhook is running (in-cluster service endpoint)
+kubectl describe mutatingwebhookconfiguration mwebhooktest.kb.io | sed -n '/Service:/,/Port:/p'
+
+# demonstrating webhook behavior: invalid CRs are rejected with an error (expected)
+kubectl apply -f samples/invalid.yaml || true
+
+# installing a valid CR which should get accepted and succeed
+kubectl apply -f samples/valid.yaml
+
+# checking ClusterExtensionRevisions (CERs) after upgrade
+kubectl get clusterextensionrevision -A
+
+# inspecting the diff between two ClusterExtensionRevisions (CERs) and comparing the RBAC
+diff -u --color=always <(kubectl get clusterextensionrevision demo-operator-1 -o yaml | yq e '.spec.phases[] | select(.name=="rbac") | .objects[].object | "\(.kind)/\(.metadata.name) \(.rules | tojson)"' -) <(kubectl get clusterextensionrevision demo-operator-2 -o yaml | yq e '.spec.phases[] | select(.name=="rbac") | .objects[].object | "\(.kind)/\(.metadata.name) \(.rules | tojson)"' -)
 
