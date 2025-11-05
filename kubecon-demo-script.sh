@@ -42,6 +42,10 @@ kubectl wait --for=condition=Installed clusterextension/demo-operator --timeout=
 kubectl get clusterextensions.olm.operatorframework.io demo-operator -o yaml | yq '.spec'
 kubectl get clusterextensions.olm.operatorframework.io demo-operator -o yaml | yq '.status.conditions[]| select(.type == "Installed")'
 
+## check the webhooks
+## exercise webhooks with invalid/valid manifests
+## show validating/mutating webhooks
+
 # upgrading demo ClusterExtension to v0.0.2, with a broken manifest
 kubectl apply -f manifests/03_clusterextension-v0.0.2-broken.yaml
 sleep 5
@@ -53,10 +57,15 @@ kubectl apply -f manifests/04_clusterextension-v0.0.2-fixed.yaml
 kubectl wait --for=jsonpath='{.status.install.bundle.name}="demo-operator.v0.0.2"' clusterextension demo-operator --timeout=30s
 kubectl wait --for=condition=Installed clusterextension/demo-operator --timeout=180s
 
+## worth mentioning that the existing application isn't broken during this process, just not proceeding...
+
 #  ... fixed!
 kubectl get clusterextension demo-operator -o yaml | yq '.status.conditions[] | select(.type=="Installed")'
 
 # final status
 kubectl get clusterextension -A
 
-
+## check the webhooks
+##
+## display CERs (once before upgrade, and once after?)
+##
